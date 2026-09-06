@@ -1,0 +1,580 @@
+<!--HEAD-->
+<title>Volscan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+  /* Volscan commits to a single dark "terminal" world on purpose: it is a
+     market screener meant to be scanned, so every colour is painted explicitly
+     and the page holds on either host ground. */
+  :root {
+    --void:  #0b0e13;
+    --panel: #141923;
+    --raise: #1a2130;
+    --line:  #212936;
+    --line2: #2c3646;
+    --text:  #e8ecf3;
+    --muted: #8b95a7;
+    --dim:   #5d6779;
+    --amber: #ffb44a;
+    --sky:   #6cc4ff;
+    --green: #46d18a;
+    --red:   #ff5f6e;
+    --sans: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --pad: clamp(16px, 3.5vw, 34px);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--void);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 1500px; margin: 0 auto; }
+  a { color: inherit; }
+  :focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; border-radius: 3px; }
+
+  /* ---------- masthead ---------- */
+  .mast {
+    display: flex; flex-wrap: wrap; align-items: flex-end; gap: 18px 32px;
+    padding: clamp(22px, 4vw, 40px) var(--pad) 20px;
+    border-bottom: 1px solid var(--line);
+  }
+  .brand { display: flex; flex-direction: column; gap: 5px; }
+  .wordmark {
+    margin: 0; font-size: clamp(26px, 4.2vw, 38px); font-weight: 700;
+    letter-spacing: -0.03em; line-height: 1;
+  }
+  .wordmark b { color: var(--amber); font-weight: 700; }
+  .tagline { color: var(--muted); font-size: 14px; max-width: 60ch; }
+  .stamp {
+    margin-left: auto; text-align: right; font-family: var(--mono);
+    font-size: 12px; color: var(--dim); line-height: 1.7; white-space: nowrap;
+  }
+  .stamp b { color: var(--muted); font-weight: 500; }
+  .snapshot {
+    display: inline-flex; align-items: center; gap: 7px;
+    border: 1px solid var(--line2); border-radius: 999px;
+    padding: 3px 11px 3px 9px; color: var(--muted);
+    font-size: 11px; letter-spacing: .04em; text-transform: uppercase;
+  }
+  .snapshot::before {
+    content: ""; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--amber); box-shadow: 0 0 0 3px rgba(255,180,74,.16);
+  }
+
+  /* ---------- summary strip ---------- */
+  /* One panel divided by hairlines, not five floating cards: the figures are a
+     single reading, so they share one object. */
+  .strip {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+    border-bottom: 1px solid var(--line); background: var(--panel);
+  }
+  .cell { padding: 15px var(--pad) 17px; border-right: 1px solid var(--line); }
+  .cell:last-child { border-right: 0; }
+  .cell .k {
+    font-size: 10.5px; letter-spacing: .09em; text-transform: uppercase;
+    color: var(--dim); margin-bottom: 6px;
+  }
+  .cell .v {
+    font-family: var(--mono); font-size: 22px; font-weight: 500;
+    letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
+  }
+  .cell .v small { font-size: 12px; color: var(--muted); font-weight: 400; margin-left: 3px; }
+  .cell .sub { font-size: 11.5px; color: var(--muted); margin-top: 3px; }
+  .v.amber { color: var(--amber); } .v.sky { color: var(--sky); }
+
+  /* ---------- distribution ---------- */
+  .dist { padding: 18px var(--pad) 20px; border-bottom: 1px solid var(--line); }
+  .dist-head {
+    display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+  .dist-head h2 {
+    margin: 0; font-size: 11px; font-weight: 600; letter-spacing: .09em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .dist-head .note { font-size: 11.5px; color: var(--dim); font-family: var(--mono); }
+  .dist svg { display: block; width: 100%; height: 96px; }
+
+  /* ---------- controls ---------- */
+  .controls {
+    display: flex; flex-wrap: wrap; gap: 12px 22px; align-items: center;
+    padding: 13px var(--pad); border-bottom: 1px solid var(--line);
+    background: var(--panel); position: sticky; top: 0; z-index: 5;
+  }
+  .field { display: flex; align-items: center; gap: 9px; }
+  .lab {
+    font-size: 10.5px; letter-spacing: .09em; text-transform: uppercase; color: var(--dim);
+  }
+  .seg { display: inline-flex; border: 1px solid var(--line2); border-radius: 7px; overflow: hidden; }
+  .seg button {
+    background: transparent; border: 0; color: var(--muted); cursor: pointer;
+    font-family: var(--sans); font-size: 12.5px; font-weight: 500; padding: 6px 12px;
+    border-right: 1px solid var(--line2);
+  }
+  .seg button:last-child { border-right: 0; }
+  .seg button:hover { color: var(--text); background: var(--raise); }
+  .seg button[aria-pressed="true"] { background: var(--amber); color: #16110a; font-weight: 600; }
+  .seg button.iv[aria-pressed="true"] { background: var(--sky); color: #06131f; }
+  select, input {
+    background: var(--void); color: var(--text); border: 1px solid var(--line2);
+    border-radius: 7px; padding: 6px 10px; font-family: var(--sans); font-size: 12.5px;
+  }
+  input { width: 190px; }
+  input::placeholder { color: var(--dim); }
+  .count { margin-left: auto; font-family: var(--mono); font-size: 12px; color: var(--dim); }
+
+  /* ---------- table ---------- */
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; min-width: 1290px; }
+  th, td {
+    padding: 8px 11px; text-align: right; white-space: nowrap;
+    border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums;
+  }
+  thead th {
+    background: var(--void); color: var(--dim); font-size: 10.5px; font-weight: 600; letter-spacing: .07em;
+    text-transform: uppercase; cursor: pointer; user-select: none;
+    border-bottom: 1px solid var(--line2);
+  }
+  thead th:hover { color: var(--text); }
+  th.l, td.l { text-align: left; }
+  th[aria-sort] { color: var(--text); }
+  th[aria-sort]::after { content: " ↓"; color: var(--amber); font-size: 10px; }
+  th[aria-sort="ascending"]::after { content: " ↑"; }
+  tbody tr:hover { background: var(--raise); }
+  td.rank { color: var(--dim); font-family: var(--mono); font-size: 12px; width: 46px; }
+  td.sym { font-family: var(--mono); font-weight: 600; letter-spacing: -0.01em; }
+  td.sym a { text-decoration: none; }
+  td.sym a:hover { color: var(--amber); text-decoration: underline; }
+  td.name { color: var(--muted); max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
+  td.sector { color: var(--dim); font-size: 12px; }
+  td.num { font-family: var(--mono); font-size: 12.5px; }
+  td.lead { font-family: var(--mono); font-weight: 600; font-size: 13px; color: var(--amber); }
+  td.lead.iv { color: var(--sky); }
+  td.ivcol { font-family: var(--mono); font-size: 12.5px; color: var(--sky); }
+  .thin { color: var(--dim) !important; font-weight: 400 !important; }
+  .up { color: var(--green); } .down { color: var(--red); }
+  /* the bar is a magnitude cue inside the cell, sharing the row's baseline */
+  .bar {
+    display: inline-block; height: 3px; border-radius: 2px; background: currentColor;
+    opacity: .45; margin-right: 9px; vertical-align: middle;
+  }
+  svg.spark { width: 96px; height: 26px; vertical-align: middle; overflow: visible; }
+  .empty { padding: 70px; text-align: center; color: var(--muted); }
+
+  footer {
+    padding: 22px var(--pad) 44px; color: var(--dim);
+    font-size: 12px; line-height: 1.75; max-width: 96ch;
+    border-top: 1px solid var(--line);
+  }
+  footer b { color: var(--muted); font-weight: 500; }
+  footer .disc { margin-top: 10px; color: var(--muted); }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+  @media (max-width: 620px) {
+    .stamp { margin-left: 0; text-align: left; }
+    .count { margin-left: 0; width: 100%; }
+  }
+</style>
+<!--/HEAD-->
+<!--BODY-->
+<div class="page">
+
+  <header class="mast">
+    <div class="brand">
+      <h1 class="wordmark">vol<b>scan</b></h1>
+      <p class="tagline">
+        Every S&amp;P 500 constituent ranked by how much it actually moves, and by
+        how much the options market says it is about to.
+      </p>
+    </div>
+    <div class="stamp">
+      <span class="snapshot">Snapshot</span><br>
+      prices through <b id="s-through">—</b><br>
+      scanned <b id="s-when">—</b>
+    </div>
+  </header>
+
+  <section class="strip" id="strip"></section>
+
+  <section class="dist">
+    <div class="dist-head">
+      <h2 id="dist-title">Distribution</h2>
+      <span class="note" id="dist-note"></span>
+    </div>
+    <svg id="dist-svg" viewBox="0 0 1000 96" preserveAspectRatio="none" role="img"
+         aria-labelledby="dist-title"></svg>
+  </section>
+
+  <div class="controls">
+    <div class="field">
+      <span class="lab" id="lab-rank">Rank by</span>
+      <span class="seg" id="seg" role="group" aria-labelledby="lab-rank">
+        <button data-m="vol20" aria-pressed="true">20d</button>
+        <button data-m="vol60" aria-pressed="false">60d</button>
+        <button data-m="vol120" aria-pressed="false">120d</button>
+        <button data-m="vol250" aria-pressed="false">1y</button>
+        <button data-m="atr20_pct" aria-pressed="false">ATR</button>
+        <button data-m="iv30" class="iv" aria-pressed="false">IV 30d</button>
+        <button data-m="iv_rv" class="iv" aria-pressed="false">IV / RV</button>
+      </span>
+    </div>
+    <div class="field">
+      <label class="lab" for="topN">Show</label>
+      <select id="topN">
+        <option value="25">Top 25</option>
+        <option value="50">Top 50</option>
+        <option value="100" selected>Top 100</option>
+        <option value="200">Top 200</option>
+        <option value="9999">All</option>
+      </select>
+    </div>
+    <div class="field">
+      <label class="lab" for="sector">Sector</label>
+      <select id="sector"><option value="">All sectors</option></select>
+    </div>
+    <div class="field">
+      <label class="lab" for="q" style="position:absolute;left:-9999px">Filter</label>
+      <input id="q" type="search" placeholder="Filter symbol or company…">
+    </div>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="scroll">
+    <table>
+      <thead><tr>
+        <th class="l" data-k="rank" scope="col">#</th>
+        <th class="l" data-k="symbol" scope="col">Symbol</th>
+        <th class="l" data-k="name" scope="col">Company</th>
+        <th class="l" data-k="sector" scope="col">Sector</th>
+        <th data-k="__key" id="leadHead" scope="col">20d vol</th>
+        <th data-k="vol20" scope="col">20d</th>
+        <th data-k="vol60" scope="col">60d</th>
+        <th data-k="vol120" scope="col">120d</th>
+        <th data-k="vol250" scope="col">1y</th>
+        <th data-k="atr20_pct" scope="col">ATR %</th>
+        <th data-k="iv30" scope="col">IV 30d</th>
+        <th data-k="iv_rv" scope="col">IV / RV</th>
+        <th data-k="max_move60_pct" scope="col">Max day</th>
+        <th data-k="ret20_pct" scope="col">20d ret</th>
+        <th data-k="ret250_pct" scope="col">1y ret</th>
+        <th data-k="last" scope="col">Last</th>
+        <th scope="col">60 sessions</th>
+      </tr></thead>
+      <tbody id="body"></tbody>
+    </table>
+  </div>
+
+  <footer>
+    <b>Realized volatility</b> is the annualised standard deviation of daily log
+    returns over the window, times the square root of 252, in percent.
+    <b>ATR %</b> is the 20-day average true range as a percent of the last close.
+    <b>IV 30d</b> is at-the-money implied volatility interpolated in variance to
+    30 days from the two listed expiries bracketing that horizon, taking the
+    median of the at-the-money calls and puts. Only live two-sided quotes traded
+    within 14 days are used, and a <b>~</b> marks a thin chain where few
+    contracts qualified or the calls and puts disagreed. Those rank last in the
+    two implied-volatility views. <b>IV / RV</b> above 1.00 means options are
+    pricing more movement than the stock has recently delivered.
+    <div class="disc">
+      Prices and option chains from Yahoo Finance, dividend and split adjusted.
+      Constituent list from Wikipedia. This is a screening tool, not investment
+      advice, and the figures are a snapshot rather than a live quote.
+    </div>
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var DATA = __SCAN_DATA__;
+
+  var LABEL = {
+    vol20: "20d vol", vol60: "60d vol", vol120: "120d vol", vol250: "1y vol",
+    atr20_pct: "ATR %", iv30: "IV 30d", iv_rv: "IV / RV"
+  };
+  var UNIT = { atr20_pct: "%", iv_rv: "×" };
+  var isIV = function (m) { return m === "iv30" || m === "iv_rv"; };
+  var $ = function (id) { return document.getElementById(id); };
+
+  var state = { metric: "vol20", sortKey: "__key", asc: false, topN: 100, sector: "", q: "" };
+
+  /* ---------- formatting ---------- */
+  function num(v, d) {
+    if (v === null || v === undefined || isNaN(v)) return "—";
+    return v.toFixed(d === undefined ? 1 : d);
+  }
+  function keyText(r, m) {
+    if (r.__key === null || r.__key === undefined) return "—";
+    var tilde = (isIV(m) && !r.iv_reliable) ? "~" : "";
+    if (m === "iv_rv") return tilde + r.__key.toFixed(2) + "×";
+    return tilde + num(r.__key) + (UNIT[m] || "");
+  }
+  function pct(v) {
+    if (v === null || v === undefined) return '<span class="num">—</span>';
+    var c = v > 0 ? "up" : v < 0 ? "down" : "";
+    return '<span class="num ' + c + '">' + (v > 0 ? "+" : "") + v.toFixed(1) + "%</span>";
+  }
+  function ivTitle(r) {
+    if (r.iv30 === null || r.iv30 === undefined) return "No usable option quotes";
+    return (r.iv_reliable ? "Reliable" : "Thin chain, treat with caution")
+      + " · " + r.iv_n + " live ATM contracts · expiries "
+      + (r.iv_expiries || []).join(" / ");
+  }
+  function esc(s) {
+    return String(s).replace(/[&<>"]/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+    });
+  }
+
+  /* ---------- sparkline: area fill, line, emphasised endpoint ---------- */
+  function spark(pts) {
+    if (!pts || pts.length < 2) return "";
+    var w = 96, h = 26, pad = 3;
+    var min = Math.min.apply(null, pts), max = Math.max.apply(null, pts);
+    var span = (max - min) || 1;
+    var X = function (i) { return (i / (pts.length - 1)) * w; };
+    var Y = function (p) { return h - pad - ((p - min) / span) * (h - pad * 2); };
+    var line = pts.map(function (p, i) { return X(i).toFixed(1) + "," + Y(p).toFixed(1); }).join(" ");
+    var rising = pts[pts.length - 1] >= pts[0];
+    var col = rising ? "var(--green)" : "var(--red)";
+    var lx = X(pts.length - 1).toFixed(1), ly = Y(pts[pts.length - 1]).toFixed(1);
+    return '<svg class="spark" viewBox="0 0 ' + w + " " + h + '" aria-hidden="true">'
+      + '<polygon fill="' + col + '" fill-opacity="0.13" points="0,' + h + " " + line + " " + w + "," + h + '"/>'
+      + '<polyline fill="none" stroke="' + col + '" stroke-width="1.4" stroke-linejoin="round" points="' + line + '"/>'
+      + '<circle cx="' + lx + '" cy="' + ly + '" r="2" fill="' + col + '"/>'
+      + "</svg>";
+  }
+
+  /* ---------- selection ---------- */
+  function ranked() {
+    var m = state.metric;
+    var rows = DATA.rows.map(function (r) {
+      var c = Object.create(r); c.__key = r[m]; return c;
+    });
+    if (state.sector) rows = rows.filter(function (r) { return r.sector === state.sector; });
+    if (state.q) {
+      var q = state.q.toLowerCase();
+      rows = rows.filter(function (r) {
+        return r.symbol.toLowerCase().indexOf(q) >= 0 || r.name.toLowerCase().indexOf(q) >= 0;
+      });
+    }
+    // thin option chains sort below every reliable quote in the IV views
+    var score = function (r) {
+      if (r.__key === null || r.__key === undefined) return -Infinity;
+      if (isIV(m) && !r.iv_reliable) return -Infinity;
+      return r.__key;
+    };
+    rows.sort(function (a, b) {
+      return (score(b) - score(a)) || ((b.__key || -Infinity) - (a.__key || -Infinity));
+    });
+    rows.forEach(function (r, i) { r.rank = i + 1; });
+    return rows.slice(0, state.topN);
+  }
+
+  /* ---------- summary strip ---------- */
+  function strip(shown, all) {
+    var m = state.metric;
+    var withIV = DATA.rows.filter(function (r) { return r.iv_reliable; });
+    var rich = withIV.filter(function (r) { return r.iv_rv !== null && r.iv_rv >= 1; });
+    var top = shown[0];
+    var med = null;
+    var vals = all.map(function (r) { return r[m]; })
+                  .filter(function (v) { return v !== null && v !== undefined; })
+                  .sort(function (a, b) { return a - b; });
+    if (vals.length) med = vals[Math.floor(vals.length / 2)];
+    var u = UNIT[m] || "";
+    var cells = [
+      ["Universe", DATA.scanned, "of " + DATA.universe + " constituents priced"],
+      ["Most volatile", top ? top.symbol : "—",
+        top ? keyText(top, m) + " on " + LABEL[m].toLowerCase() : ""],
+      ["Median " + LABEL[m].toLowerCase(),
+        med === null ? "—" : (m === "iv_rv" ? med.toFixed(2) + "×" : med.toFixed(1) + u),
+        "across the filtered set"],
+      ["Option chains", withIV.length, DATA.iv_count + " quoted, rest too thin"],
+      ["IV above realized", rich.length, "options pricing a bigger move"]
+    ];
+    $("strip").innerHTML = cells.map(function (c, i) {
+      var cls = i === 1 ? (isIV(m) ? "sky" : "amber") : (i >= 3 ? "sky" : "");
+      return '<div class="cell"><div class="k">' + esc(c[0]) + "</div>"
+        + '<div class="v ' + cls + '">' + esc(c[1]) + "</div>"
+        + '<div class="sub">' + esc(c[2]) + "</div></div>";
+    }).join("");
+  }
+
+  /* ---------- distribution histogram ---------- */
+  function histogram(shown, all) {
+    var m = state.metric, W = 1000, H = 96, base = H - 17;
+    var vals = all.map(function (r) { return r[m]; })
+                  .filter(function (v) { return v !== null && v !== undefined; });
+    var svg = $("dist-svg");
+    if (vals.length < 10) { svg.innerHTML = ""; $("dist-note").textContent = ""; return; }
+    vals.sort(function (a, b) { return a - b; });
+    var lo = vals[0], hi = vals[Math.floor(vals.length * 0.99)] || vals[vals.length - 1];
+    if (hi <= lo) hi = lo + 1;
+    var BINS = 56, counts = new Array(BINS).fill(0);
+    vals.forEach(function (v) {
+      var i = Math.floor(((v - lo) / (hi - lo)) * BINS);
+      if (i < 0) i = 0; if (i >= BINS) i = BINS - 1;
+      counts[i]++;
+    });
+    var peak = Math.max.apply(null, counts);
+    var bw = W / BINS;
+    var cut = shown.length ? shown[shown.length - 1].__key : null;   // top-N cutoff
+    if (cut === undefined) cut = null;
+    var accent = isIV(m) ? "var(--sky)" : "var(--amber)";
+    var x = function (v) { return Math.max(0, Math.min(W, ((v - lo) / (hi - lo)) * W)); };
+
+    var parts = [];
+    counts.forEach(function (c, i) {
+      var h = c ? Math.max(2, (c / peak) * (base - 6)) : 0;
+      if (!h) return;
+      var mid = lo + ((i + 0.5) / BINS) * (hi - lo);
+      var on = cut !== null && mid >= cut;
+      parts.push('<rect x="' + (i * bw + 0.6).toFixed(2) + '" y="' + (base - h).toFixed(1)
+        + '" width="' + (bw - 1.2).toFixed(2) + '" height="' + h.toFixed(1)
+        + '" fill="' + (on ? accent : "var(--line2)") + '" fill-opacity="' + (on ? 0.95 : 1) + '"/>');
+    });
+    parts.push('<line x1="0" y1="' + base + '" x2="' + W + '" y2="' + base
+      + '" stroke="var(--line2)" stroke-width="1"/>');
+    // axis ticks: every label names a value the chart actually reaches
+    [0, 0.25, 0.5, 0.75, 1].forEach(function (f) {
+      var v = lo + (hi - lo) * f, px = x(v);
+      var anchor = f === 0 ? "start" : f === 1 ? "end" : "middle";
+      parts.push('<line x1="' + px + '" y1="' + base + '" x2="' + px + '" y2="' + (base + 4)
+        + '" stroke="var(--line2)"/>');
+      parts.push('<text x="' + px + '" y="' + (base + 14) + '" fill="var(--dim)" font-size="10"'
+        + ' font-family="IBM Plex Mono, monospace" text-anchor="' + anchor + '">'
+        + (m === "iv_rv" ? v.toFixed(2) : Math.round(v)) + "</text>");
+    });
+    if (cut !== null && cut > lo && cut < hi) {
+      var cx = x(cut);
+      parts.push('<line x1="' + cx + '" y1="4" x2="' + cx + '" y2="' + base
+        + '" stroke="' + accent + '" stroke-width="1" stroke-dasharray="3 3" opacity="1"/>');
+    }
+    svg.innerHTML = parts.join("");
+    $("dist-note").textContent = "highlighted: the " + shown.length
+      + " shown · " + vals.length + " with data · axis in "
+      + (m === "iv_rv" ? "ratio" : "% annualised");
+  }
+
+  /* ---------- table ---------- */
+  function render() {
+    var m = state.metric;
+    var all = DATA.rows.filter(function (r) {
+      if (state.sector && r.sector !== state.sector) return false;
+      if (state.q) {
+        var q = state.q.toLowerCase();
+        if (r.symbol.toLowerCase().indexOf(q) < 0 && r.name.toLowerCase().indexOf(q) < 0) return false;
+      }
+      return true;
+    });
+    var rows = ranked();
+
+    $("leadHead").textContent = LABEL[m];
+    var heads = document.querySelectorAll("thead th[data-k]");
+    for (var i = 0; i < heads.length; i++) {
+      if (heads[i].dataset.k === state.sortKey) heads[i].setAttribute("aria-sort", state.asc ? "ascending" : "descending");
+      else heads[i].removeAttribute("aria-sort");
+    }
+    document.querySelectorAll("#seg button").forEach(function (b) {
+      b.setAttribute("aria-pressed", String(b.dataset.m === m));
+    });
+
+    strip(rows, all);
+    histogram(rows, all);
+    $("count").textContent = rows.length + " of " + all.length + " shown";
+
+    // the clicked column sort applies on top of the ranked slice
+    var k = state.sortKey, dir = state.asc ? 1 : -1;
+    var view = rows.slice().sort(function (a, b) {
+      var x = a[k], y = b[k];
+      if (typeof x === "string") return x.localeCompare(y) * dir;
+      return (((x === null || x === undefined) ? -Infinity : x)
+            - ((y === null || y === undefined) ? -Infinity : y)) * dir;
+    });
+
+    if (!view.length) {
+      $("body").innerHTML = '<tr><td class="empty" colspan="17">Nothing matches that filter.</td></tr>';
+      return;
+    }
+    var peak = 0;
+    view.forEach(function (r) { if (r.__key > peak) peak = r.__key; });
+    peak = peak || 1;
+
+    $("body").innerHTML = view.map(function (r) {
+      var barw = Math.max(2, ((r.__key || 0) / peak) * 46);
+      var thin = (isIV(m) && r.__key !== null && !r.iv_reliable) ? " thin" : "";
+      return '<tr>'
+        + '<td class="rank l">' + r.rank + "</td>"
+        + '<td class="sym l"><a href="https://finance.yahoo.com/quote/' + encodeURIComponent(r.yf_symbol)
+          + '" target="_blank" rel="noopener noreferrer">' + esc(r.symbol) + "</a></td>"
+        + '<td class="name l" title="' + esc(r.name) + '">' + esc(r.name) + "</td>"
+        + '<td class="sector l">' + esc(r.sector) + "</td>"
+        + '<td class="lead' + (isIV(m) ? " iv" : "") + thin + '">'
+          + '<span class="bar" style="width:' + barw.toFixed(0) + 'px"></span>' + keyText(r, m) + "</td>"
+        + '<td class="num">' + num(r.vol20) + "</td>"
+        + '<td class="num">' + num(r.vol60) + "</td>"
+        + '<td class="num">' + num(r.vol120) + "</td>"
+        + '<td class="num">' + num(r.vol250) + "</td>"
+        + '<td class="num">' + num(r.atr20_pct) + "%</td>"
+        + '<td class="ivcol' + (r.iv30 !== null && !r.iv_reliable ? " thin" : "") + '" title="'
+          + esc(ivTitle(r)) + '">' + (r.iv30 !== null && !r.iv_reliable ? "~" : "") + num(r.iv30) + "</td>"
+        + '<td class="num ' + (r.iv_rv === null ? "" : !r.iv_reliable ? "thin" : r.iv_rv >= 1 ? "up" : "down")
+          + '" title="' + esc(ivTitle(r)) + '">'
+          + (r.iv_rv === null ? "—" : (r.iv_reliable ? "" : "~") + r.iv_rv.toFixed(2) + "×") + "</td>"
+        + '<td class="num">' + num(r.max_move60_pct) + "%</td>"
+        + "<td>" + pct(r.ret20_pct) + "</td>"
+        + "<td>" + pct(r.ret250_pct) + "</td>"
+        + '<td class="num">' + num(r.last, 2) + "</td>"
+        + "<td>" + spark(r.spark) + "</td>"
+        + "</tr>";
+    }).join("");
+  }
+
+  /* ---------- wiring ---------- */
+  $("seg").addEventListener("click", function (e) {
+    var b = e.target.closest("button");
+    if (!b) return;
+    state.metric = b.dataset.m; state.sortKey = "__key"; state.asc = false;
+    render();
+  });
+  $("topN").addEventListener("change", function (e) { state.topN = +e.target.value; render(); });
+  $("sector").addEventListener("change", function (e) { state.sector = e.target.value; render(); });
+  $("q").addEventListener("input", function (e) { state.q = e.target.value.trim(); render(); });
+  document.querySelectorAll("thead th[data-k]").forEach(function (th) {
+    th.setAttribute("tabindex", "0");
+    var go = function () {
+      var k = th.dataset.k;
+      if (state.sortKey === k) state.asc = !state.asc;
+      else { state.sortKey = k; state.asc = ["symbol", "name", "sector", "rank"].indexOf(k) >= 0; }
+      render();
+    };
+    th.addEventListener("click", go);
+    th.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); }
+    });
+  });
+
+  /* ---------- boot ---------- */
+  (function boot() {
+    var through = (DATA.rows[0] && DATA.rows[0].last_date) || "—";
+    $("s-through").textContent = through;
+    var d = new Date(DATA.generated_at);
+    $("s-when").textContent = isNaN(d) ? DATA.generated_at
+      : d.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" });
+    var secs = {};
+    DATA.rows.forEach(function (r) { if (r.sector) secs[r.sector] = 1; });
+    $("sector").innerHTML = '<option value="">All sectors</option>'
+      + Object.keys(secs).sort().map(function (s) {
+          return '<option value="' + esc(s) + '">' + esc(s) + "</option>";
+        }).join("");
+    render();
+  })();
+})();
+</script>
+<!--/BODY-->

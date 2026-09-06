@@ -24,6 +24,26 @@ CLI only (writes `data/scan.json`):
 .venv/bin/python options.py AAPL MRNA   # debug IV for a few tickers
 ```
 
+## Share a snapshot
+
+The server is only needed to *run* a scan. To hand someone the results, bake the
+latest scan into a self-contained page that needs no server at all:
+
+```bash
+.venv/bin/python build_share.py
+```
+
+That writes two files, both around half a megabyte with the data embedded:
+
+| File | Use |
+|---|---|
+| `dist/volscan.html` | double-click it, email it, or drop it on any static host |
+| `dist/volscan-artifact.html` | the same page as a fragment, for publishing as a Claude Artifact |
+
+Both are a **snapshot**, not a live view: re-run `scan.py` and then
+`build_share.py` to refresh them. To serve it on GitHub Pages, commit
+`dist/volscan.html` as `index.html` on a `gh-pages` branch and enable Pages.
+
 ## Metrics
 
 | Column | Meaning |
