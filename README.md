@@ -1,4 +1,6 @@
-# volscan — S&P 500 volatility scanner
+# volscan
+
+**Live snapshot: https://sycode1234.github.io/Volscan/** — S&P 500 volatility scanner
 
 Scans every S&P 500 constituent and ranks them by realized volatility or by
 30-day implied volatility from the option chain. Shows the top 100 (or
@@ -40,9 +42,16 @@ That writes two files, both around half a megabyte with the data embedded:
 | `dist/volscan.html` | double-click it, email it, or drop it on any static host |
 | `dist/volscan-artifact.html` | the same page as a fragment, for publishing as a Claude Artifact |
 
-Both are a **snapshot**, not a live view: re-run `scan.py` and then
-`build_share.py` to refresh them. To serve it on GitHub Pages, commit
-`dist/volscan.html` as `index.html` on a `gh-pages` branch and enable Pages.
+Both are a **snapshot**, not a live view. To refresh the published page:
+
+```bash
+.venv/bin/python scan.py && .venv/bin/python build_share.py && ./deploy_pages.sh
+```
+
+`deploy_pages.sh` commits `dist/volscan.html` as `index.html` on the orphan
+`gh-pages` branch, which GitHub Pages serves. It uses a temporary git index, so
+your working tree and `main`'s history are untouched, and the generated file
+never lands in `main`.
 
 ## Metrics
 
