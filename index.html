@@ -311,6 +311,17 @@
     var v = (k === undefined) ? r.__key : r[k];
     return (v === null || v === undefined || isNaN(v)) ? MISSING : v;
   };
+  // Rank quality before value: a quoted-but-thin option chain always sits below
+  // every reliable quote, and a missing value below both. Used by the ranking
+  // pass AND by the clicked-column sort, which would otherwise undo it.
+  var tierFor = function (r, k) {
+    var v = (k === undefined || k === "__key") ? r.__key : r[k];
+    if (v === null || v === undefined) return 0;
+    var ivCol = (k === undefined || k === "__key") ? isIV(state.metric)
+                                                  : (k === "iv30" || k === "iv_rv");
+    if (ivCol && !r.iv_reliable) return 1;
+    return 2;
+  };
 
   var state = { metric: "vol20", sortKey: "__key", asc: false, topN: 100, sector: "", q: "" };
 
@@ -374,18 +385,11 @@
         return r.symbol.toLowerCase().indexOf(q) >= 0 || r.name.toLowerCase().indexOf(q) >= 0;
       });
     }
-    // Thin option chains sort below every reliable quote in the IV views.
-    // Tiers are compared first; the value comparison uses a finite sentinel for
-    // missing data, because -Infinity minus -Infinity is NaN and a comparator
-    // that returns NaN even once leaves the whole sort in an undefined order.
-    var tier = function (r) {
-      var v = r.__key;                                 // isFinite(null) is true,
-      if (v === null || v === undefined) return 0;     // so test null explicitly
-      if (isIV(m) && !r.iv_reliable) return 1;         // quoted, but too thin
-      return 2;                                        // usable
-    };
+    // Tier first, then value through a finite sentinel: -Infinity minus
+    // -Infinity is NaN, and a comparator that returns NaN even once leaves
+    // Array.sort in an undefined order.
     rows.sort(function (a, b) {
-      return (tier(b) - tier(a)) || (val(b) - val(a));
+      return (tierFor(b) - tierFor(a)) || (val(b) - val(a));
     });
     rows.forEach(function (r, i) { r.rank = i + 1; });
     return rows.slice(0, state.topN);
@@ -508,6 +512,8 @@
     var k = state.sortKey, dir = state.asc ? 1 : -1;
     var view = rows.slice().sort(function (a, b) {
       if (typeof a[k] === "string") return String(a[k]).localeCompare(String(b[k])) * dir;
+      var t = tierFor(b, k) - tierFor(a, k);   // quality outranks direction
+      if (t) return t;
       return (val(a, k) - val(b, k)) * dir;
     });
 
