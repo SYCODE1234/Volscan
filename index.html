@@ -305,6 +305,12 @@
   var UNIT = { atr20_pct: "%", iv_rv: "×" };
   var isIV = function (m) { return m === "iv30" || m === "iv_rv"; };
   var $ = function (id) { return document.getElementById(id); };
+  // finite stand-in for null/NaN so no comparator can ever produce NaN
+  var MISSING = -Number.MAX_VALUE;
+  var val = function (r, k) {
+    var v = (k === undefined) ? r.__key : r[k];
+    return (v === null || v === undefined || isNaN(v)) ? MISSING : v;
+  };
 
   var state = { metric: "vol20", sortKey: "__key", asc: false, topN: 100, sector: "", q: "" };
 
@@ -368,14 +374,18 @@
         return r.symbol.toLowerCase().indexOf(q) >= 0 || r.name.toLowerCase().indexOf(q) >= 0;
       });
     }
-    // thin option chains sort below every reliable quote in the IV views
-    var score = function (r) {
-      if (r.__key === null || r.__key === undefined) return -Infinity;
-      if (isIV(m) && !r.iv_reliable) return -Infinity;
-      return r.__key;
+    // Thin option chains sort below every reliable quote in the IV views.
+    // Tiers are compared first; the value comparison uses a finite sentinel for
+    // missing data, because -Infinity minus -Infinity is NaN and a comparator
+    // that returns NaN even once leaves the whole sort in an undefined order.
+    var tier = function (r) {
+      var v = r.__key;                                 // isFinite(null) is true,
+      if (v === null || v === undefined) return 0;     // so test null explicitly
+      if (isIV(m) && !r.iv_reliable) return 1;         // quoted, but too thin
+      return 2;                                        // usable
     };
     rows.sort(function (a, b) {
-      return (score(b) - score(a)) || ((b.__key || -Infinity) - (a.__key || -Infinity));
+      return (tier(b) - tier(a)) || (val(b) - val(a));
     });
     rows.forEach(function (r, i) { r.rank = i + 1; });
     return rows.slice(0, state.topN);
@@ -497,10 +507,8 @@
     // the clicked column sort applies on top of the ranked slice
     var k = state.sortKey, dir = state.asc ? 1 : -1;
     var view = rows.slice().sort(function (a, b) {
-      var x = a[k], y = b[k];
-      if (typeof x === "string") return x.localeCompare(y) * dir;
-      return (((x === null || x === undefined) ? -Infinity : x)
-            - ((y === null || y === undefined) ? -Infinity : y)) * dir;
+      if (typeof a[k] === "string") return String(a[k]).localeCompare(String(b[k])) * dir;
+      return (val(a, k) - val(b, k)) * dir;
     });
 
     if (!view.length) {
